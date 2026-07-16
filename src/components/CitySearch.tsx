@@ -36,17 +36,23 @@ export default function CitySearch({ onSelectCity, currentCityName }: CitySearch
       setIsLoading(true);
       try {
         let res;
+        let isJson = false;
         try {
           res = await fetch(`/api/search-city?name=${encodeURIComponent(query)}`);
-          if (!res.ok) {
-            throw new Error("Proxy error, falling back to direct geocoding fetch");
+          if (res.ok && res.headers.get("content-type")?.includes("application/json")) {
+            isJson = true;
+          } else {
+            throw new Error("Proxy response not OK or not JSON");
           }
         } catch (proxyErr) {
           console.warn("Proxy geocoding failed, trying direct Open-Meteo search:", proxyErr);
           res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=10&language=en&format=json`);
+          if (res.ok) {
+            isJson = true;
+          }
         }
 
-        if (res.ok) {
+        if (res.ok && isJson) {
           const data = await res.json();
           if (data.results && Array.isArray(data.results)) {
             const formattedResults = data.results.map((item: any) => ({
@@ -63,9 +69,12 @@ export default function CitySearch({ onSelectCity, currentCityName }: CitySearch
           } else {
             setSuggestions([]);
           }
+        } else {
+          setSuggestions([]);
         }
       } catch (error) {
         console.error("Error searching for cities:", error);
+        setSuggestions([]);
       } finally {
         setIsLoading(false);
       }

@@ -73,10 +73,11 @@ export default function App() {
       // 1. Fetch weather forecast from server proxy, with client fallback
       try {
         const weatherRes = await fetch(`/api/forecast?latitude=${city.latitude}&longitude=${city.longitude}`);
-        if (!weatherRes.ok) {
-          throw new Error("Proxy response not OK");
+        if (weatherRes.ok && weatherRes.headers.get("content-type")?.includes("application/json")) {
+          weatherData = await weatherRes.json();
+        } else {
+          throw new Error("Proxy response not OK or not JSON");
         }
-        weatherData = await weatherRes.json();
       } catch (proxyErr) {
         console.warn("Proxy weather fetch failed, attempting direct Open-Meteo fetch:", proxyErr);
         const url = `https://api.open-meteo.com/v1/forecast?latitude=${city.latitude}&longitude=${city.longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,rain,showers,snowfall,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,uv_index_max,precipitation_sum,rain_sum,showers_sum,snowfall_sum,wind_speed_10m_max&timezone=auto`;
@@ -107,12 +108,12 @@ export default function App() {
           })
         });
 
-        if (!intelRes.ok) {
-          throw new Error("Gemini API intelligence pipeline failed");
+        if (intelRes.ok && intelRes.headers.get("content-type")?.includes("application/json")) {
+          const intelligenceData = await intelRes.json();
+          setIntelligence(intelligenceData);
+        } else {
+          throw new Error("Gemini API intelligence pipeline failed or returned non-JSON");
         }
-
-        const intelligenceData = await intelRes.json();
-        setIntelligence(intelligenceData);
       } catch (intelErr: any) {
         console.warn("Server intelligence retrieval failed, generating rich client-side intelligence fallback:", intelErr);
         const intelligenceFallback = generateClientSideIntelligence(weatherData, city.name);
