@@ -8,10 +8,7 @@ import {
   RefreshCw,
   Sun,
   Moon,
-  Compass,
-  LogIn,
-  LogOut,
-  CloudOff
+  Compass
 } from "lucide-react";
 import { City, WeatherData, WeatherIntelligence } from "./types";
 import CitySearch from "./components/CitySearch";
@@ -20,8 +17,6 @@ import GeminiIntelligence from "./components/GeminiIntelligence";
 import WeeklyForecast from "./components/WeeklyForecast";
 import SavedLocations from "./components/SavedLocations";
 import { getWeatherInterpretation } from "./utils/weatherUtils";
-import { useFirebaseSync } from "./hooks/useFirebaseSync";
-import { signInWithGoogle, signOutUser, isFirebaseEnabled } from "./lib/firebase";
 
 const DEFAULT_CITY: City = {
   id: 5128581,
@@ -33,24 +28,32 @@ const DEFAULT_CITY: City = {
   country_code: "US"
 };
 
+const PRE_POPULATED_FAVORITES: City[] = [
+  { id: 5128581, name: "New York", latitude: 40.7128, longitude: -74.006, country: "United States", admin1: "New York", country_code: "US" },
+  { id: 1850147, name: "Tokyo", latitude: 35.6895, longitude: 139.6917, country: "Japan", admin1: "Tokyo", country_code: "JP" },
+  { id: 2643743, name: "London", latitude: 51.5085, longitude: -0.1257, country: "United Kingdom", admin1: "England", country_code: "GB" },
+  { id: 2988507, name: "Paris", latitude: 48.8534, longitude: 2.3488, country: "France", admin1: "Île-de-France", country_code: "FR" },
+  { id: 2147714, name: "Sydney", latitude: -33.8678, longitude: 151.2073, country: "Australia", admin1: "New South Wales", country_code: "AU" }
+];
+
 export default function App() {
   const [currentCity, setCurrentCity] = useState<City>(DEFAULT_CITY);
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [intelligence, setIntelligence] = useState<WeatherIntelligence | null>(null);
-
-  const {
-    user,
-    authLoading,
-    syncLoading,
-    favorites,
-    addFavorite,
-    removeFavorite
-  } = useFirebaseSync();
+  const [favorites, setFavorites] = useState<City[]>(() => {
+    const saved = localStorage.getItem("weather_intelligence_favorites");
+    return saved ? JSON.parse(saved) : PRE_POPULATED_FAVORITES;
+  });
 
   const [isWeatherLoading, setIsWeatherLoading] = useState(false);
   const [isIntelLoading, setIsIntelLoading] = useState(false);
   const [weatherError, setWeatherError] = useState<string | null>(null);
   const [intelError, setIntelError] = useState<string | null>(null);
+
+  // Sync favorites to localStorage
+  useEffect(() => {
+    localStorage.setItem("weather_intelligence_favorites", JSON.stringify(favorites));
+  }, [favorites]);
 
   // Load weather and intelligence on load/change
   useEffect(() => {
@@ -111,27 +114,13 @@ export default function App() {
   };
 
   const handleAddFavorite = (city: City) => {
-    addFavorite(city);
+    if (!favorites.some((fav) => fav.id === city.id)) {
+      setFavorites([...favorites, city]);
+    }
   };
 
   const handleRemoveFavorite = (city: City) => {
-    removeFavorite(city);
-  };
-
-  const handleSignIn = async () => {
-    try {
-      await signInWithGoogle();
-    } catch (err: any) {
-      console.error("Auth sign-in failed:", err);
-    }
-  };
-
-  const handleSignOut = async () => {
-    try {
-      await signOutUser();
-    } catch (err: any) {
-      console.error("Auth sign-out failed:", err);
-    }
+    setFavorites(favorites.filter((fav) => fav.id !== city.id));
   };
 
   const handleRefresh = () => {
@@ -166,66 +155,12 @@ export default function App() {
             </div>
           </div>
 
-          {/* Search & Firebase Controls */}
-          <div className="w-full sm:w-auto flex flex-col sm:flex-row items-center gap-4 flex-1 justify-end max-w-2xl">
-            <div className="w-full max-w-md">
-              <CitySearch 
-                onSelectCity={handleSelectCity} 
-                currentCityName={currentCity.name} 
-              />
-            </div>
-            
-            <div id="firebase-auth-control" className="flex items-center gap-3 shrink-0">
-              {isFirebaseEnabled ? (
-                user ? (
-                  <div className="flex items-center gap-3 bg-white/5 border border-white/10 px-3 py-1.5 rounded">
-                    {user.photoURL ? (
-                      <img 
-                        src={user.photoURL} 
-                        alt={user.displayName || "User"} 
-                        referrerPolicy="no-referrer"
-                        className="w-5 h-5 rounded-full border border-gold/40"
-                      />
-                    ) : (
-                      <div className="w-5 h-5 bg-gold text-[#0A0A0B] text-[10px] font-bold rounded-full flex items-center justify-center">
-                        {user.displayName ? user.displayName.charAt(0).toUpperCase() : "U"}
-                      </div>
-                    )}
-                    <div className="text-left hidden md:block">
-                      <div className="text-[10px] text-white font-bold leading-none truncate max-w-[100px]">
-                        {user.displayName || "Observer"}
-                      </div>
-                      <div className="text-[8px] text-white/40 leading-none mt-0.5 truncate max-w-[100px]">
-                        Syncing active
-                      </div>
-                    </div>
-                    <button 
-                      onClick={handleSignOut}
-                      className="p-1 text-white/40 hover:text-rose-400 hover:bg-white/5 rounded transition-colors"
-                      title="Disconnect Cloud Sync"
-                    >
-                      <LogOut className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ) : (
-                  <button 
-                    onClick={handleSignIn}
-                    className="inline-flex items-center gap-2 px-3.5 py-2 bg-gold text-black hover:bg-gold/90 text-[10px] font-sans font-bold tracking-widest uppercase transition-colors border border-transparent"
-                  >
-                    <LogIn className="w-3.5 h-3.5" />
-                    <span>Sync Cloud</span>
-                  </button>
-                )
-              ) : (
-                <div 
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/5 border border-white/10 text-[9px] font-sans font-medium text-white/40 tracking-wider uppercase"
-                  title="Firebase is unconfigured. Operating in offline/local storage mode."
-                >
-                  <CloudOff className="w-3 h-3 text-gold" />
-                  <span>Local Mode</span>
-                </div>
-              )}
-            </div>
+          {/* Search Controls */}
+          <div className="w-full sm:w-auto flex-1 max-w-md">
+            <CitySearch 
+              onSelectCity={handleSelectCity} 
+              currentCityName={currentCity.name} 
+            />
           </div>
 
         </div>

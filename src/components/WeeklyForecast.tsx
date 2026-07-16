@@ -153,7 +153,7 @@ export default function WeeklyForecast({ weather }: WeeklyForecastProps) {
               <defs>
                 {/* Temperature spectrum gradient */}
                 <linearGradient id="tempGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#F4D068" stopOpacity="0.15" />
+                  <stop offset="0%" stopColor="#C9A227" stopOpacity="0.15" />
                   <stop offset="100%" stopColor="#0A0A0B" stopOpacity="0.01" />
                 </linearGradient>
                 {/* High contrast point shadows */}
@@ -240,7 +240,7 @@ export default function WeeklyForecast({ weather }: WeeklyForecastProps) {
               <path d={shadedPath} fill="url(#tempGradient)" />
 
               {/* Trend lines */}
-              <path d={maxPath} fill="none" stroke="#F4D068" strokeWidth="2" strokeLinecap="round" />
+              <path d={maxPath} fill="none" stroke="#C9A227" strokeWidth="2" strokeLinecap="round" />
               <path d={minPath} fill="none" stroke="rgba(255, 255, 255, 0.3)" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="3 3" />
 
               {/* Temperature circles and digital output notes */}
@@ -258,7 +258,7 @@ export default function WeeklyForecast({ weather }: WeeklyForecastProps) {
                       cy={p.y}
                       r={isHovered ? "5" : "4"}
                       fill="#0A0A0B"
-                      stroke="#F4D068"
+                      stroke="#C9A227"
                       strokeWidth={isHovered ? "3.5" : "2"}
                       filter="url(#pointShadow)"
                       className="transition-all duration-200"
