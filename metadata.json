@@ -1,0 +1,6 @@
+{
+  "name": "Weather Intelligence App",
+  "description": "An interactive weather application that retrieves real-time weather and 7-day forecasts from Open-Meteo, powered by Gemini for intelligent clothing advice, daily warnings, commute plans, and outdoor activities suitability.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

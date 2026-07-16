@@ -1,0 +1,84 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Durable profile of the weather observer.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "The unique Firebase UID of the user."
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address."
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Display name of the user."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp of user profile registration."
+        }
+      },
+      "required": ["uid", "email"]
+    },
+    "Favorite": {
+      "title": "Favorite Coordinates",
+      "description": "Pinned geographic coordinates for high-precision meteorological monitoring.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "description": "Geonames ID of the city"
+        },
+        "name": {
+          "type": "string",
+          "description": "City name"
+        },
+        "latitude": {
+          "type": "number",
+          "description": "Latitude"
+        },
+        "longitude": {
+          "type": "number",
+          "description": "Longitude"
+        },
+        "country": {
+          "type": "string",
+          "description": "Country name"
+        },
+        "admin1": {
+          "type": "string",
+          "description": "First-level administrative division"
+        },
+        "country_code": {
+          "type": "string",
+          "description": "Two-letter country code"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Owner user UID"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the location was pinned"
+        }
+      },
+      "required": ["id", "name", "latitude", "longitude", "userId"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Collection of user profiles."
+    },
+    "/users/{userId}/favorites/{cityId}": {
+      "schema": "Favorite",
+      "description": "Subcollection of favorite cities per user."
+    }
+  }
+}

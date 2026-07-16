@@ -1,0 +1,30 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Playfair Display", serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  
+  --color-gold: #F4D068;
+  --color-gold-muted: rgba(244, 208, 104, 0.3);
+  --color-sophisticated-bg: #0A0A0B;
+  --color-sophisticated-card: rgba(255, 255, 255, 0.03);
+}
+
+/* Custom smooth transitions */
+.transition-all-300 {
+  transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Glassmorphism custom styling corresponding to the Sophisticated Dark theme */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+body {
+  background-color: #0A0A0B;
+  color: #E4E4E7;
+}
