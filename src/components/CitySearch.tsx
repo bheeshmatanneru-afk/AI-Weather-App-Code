@@ -35,7 +35,17 @@ export default function CitySearch({ onSelectCity, currentCityName }: CitySearch
     const delayDebounce = setTimeout(async () => {
       setIsLoading(true);
       try {
-        const res = await fetch(`/api/search-city?name=${encodeURIComponent(query)}`);
+        let res;
+        try {
+          res = await fetch(`/api/search-city?name=${encodeURIComponent(query)}`);
+          if (!res.ok) {
+            throw new Error("Proxy error, falling back to direct geocoding fetch");
+          }
+        } catch (proxyErr) {
+          console.warn("Proxy geocoding failed, trying direct Open-Meteo search:", proxyErr);
+          res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=10&language=en&format=json`);
+        }
+
         if (res.ok) {
           const data = await res.json();
           if (data.results && Array.isArray(data.results)) {

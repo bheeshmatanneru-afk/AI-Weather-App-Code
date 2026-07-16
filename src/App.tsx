@@ -17,6 +17,7 @@ import GeminiIntelligence from "./components/GeminiIntelligence";
 import WeeklyForecast from "./components/WeeklyForecast";
 import SavedLocations from "./components/SavedLocations";
 import { getWeatherInterpretation } from "./utils/weatherUtils";
+import { generateClientSideIntelligence } from "./utils/intelligenceFallback";
 
 const DEFAULT_CITY: City = {
   id: 5128581,
@@ -66,43 +67,60 @@ export default function App() {
     setIntelError(null);
     setIntelligence(null);
 
+    let weatherData: WeatherData | null = null;
+
     try {
-      // 1. Fetch weather forecast from server proxy
-      const weatherRes = await fetch(`/api/forecast?latitude=${city.latitude}&longitude=${city.longitude}`);
-      if (!weatherRes.ok) {
-        throw new Error("Failed to load meteorological data for this region");
+      // 1. Fetch weather forecast from server proxy, with client fallback
+      try {
+        const weatherRes = await fetch(`/api/forecast?latitude=${city.latitude}&longitude=${city.longitude}`);
+        if (!weatherRes.ok) {
+          throw new Error("Proxy response not OK");
+        }
+        weatherData = await weatherRes.json();
+      } catch (proxyErr) {
+        console.warn("Proxy weather fetch failed, attempting direct Open-Meteo fetch:", proxyErr);
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${city.latitude}&longitude=${city.longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,rain,showers,snowfall,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,uv_index_max,precipitation_sum,rain_sum,showers_sum,snowfall_sum,wind_speed_10m_max&timezone=auto`;
+        const directRes = await fetch(url);
+        if (!directRes.ok) {
+          throw new Error("Direct meteorological service call failed");
+        }
+        weatherData = await directRes.json();
       }
-      const weatherData = await weatherRes.ok ? await weatherRes.json() : null;
-      if (!weatherData) throw new Error("Received empty weather payload");
+
+      if (!weatherData) {
+        throw new Error("Received empty meteorological payload");
+      }
       
       setWeather(weatherData);
       setIsWeatherLoading(false);
 
-      // 2. Fetch intelligence recommendations asynchronously
+      // 2. Fetch intelligence recommendations asynchronously, with client-side fallback
       setIsIntelLoading(true);
-      const intelRes = await fetch("/api/intelligence", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          current: weatherData.current,
-          daily: weatherData.daily,
-          locationName: city.name
-        })
-      });
+      try {
+        const intelRes = await fetch("/api/intelligence", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            current: weatherData.current,
+            daily: weatherData.daily,
+            locationName: city.name
+          })
+        });
 
-      if (!intelRes.ok) {
-        throw new Error("Gemini API intelligence pipeline failed");
+        if (!intelRes.ok) {
+          throw new Error("Gemini API intelligence pipeline failed");
+        }
+
+        const intelligenceData = await intelRes.json();
+        setIntelligence(intelligenceData);
+      } catch (intelErr: any) {
+        console.warn("Server intelligence retrieval failed, generating rich client-side intelligence fallback:", intelErr);
+        const intelligenceFallback = generateClientSideIntelligence(weatherData, city.name);
+        setIntelligence(intelligenceFallback);
       }
-
-      const intelligenceData = await intelRes.json();
-      setIntelligence(intelligenceData);
     } catch (err: any) {
-      console.error("Fetch Error:", err);
-      if (isWeatherLoading) {
-        setWeatherError(err.message || "An unexpected error occurred while contacting weather service");
-      } else {
-        setIntelError(err.message || "Could not retrieve customized advice from Gemini");
-      }
+      console.error("General Fetch Error:", err);
+      setWeatherError(err.message || "An unexpected error occurred while contacting weather service");
     } finally {
       setIsWeatherLoading(false);
       setIsIntelLoading(false);
