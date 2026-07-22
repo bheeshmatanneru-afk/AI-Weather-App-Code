@@ -78,6 +78,196 @@ The application will start at `http://localhost:3000` with hot-reloading for cli
 
 ---
 
+## ⚡ Cloudflare Development Environment Setup (Workers & Pages Local Dev)
+
+To develop and test the app locally using **Cloudflare Workers & Pages Functions** runtime (instead of the Node.js Express server), follow these step-by-step instructions using Cloudflare's **Wrangler** CLI tool.
+
+### Prerequisites
+
+- **Wrangler CLI**: Cloudflare's official command line tool (runs via `npx wrangler`).
+- **Cloudflare Account**: Free tier account at [dash.cloudflare.com](https://dash.cloudflare.com/) (required if deploying or creating Cloudflare preview links).
+
+---
+
+### Step 1: Install Wrangler CLI
+
+Ensure `wrangler` is available in your workspace as a developer dependency:
+
+```bash
+npm install --save-dev wrangler
+```
+
+---
+
+### Step 2: Configure Local Environment Variables (`.dev.vars`)
+
+In Cloudflare Pages Functions local development, environment secrets (such as your Gemini API Key) are loaded from a `.dev.vars` file in the root directory.
+
+Create a `.dev.vars` file:
+
+```bash
+touch .dev.vars
+```
+
+Add your Gemini API key inside `.dev.vars`:
+
+```env
+# .dev.vars (Used automatically by wrangler pages dev)
+GEMINI_API_KEY="your-gemini-api-key-here"
+```
+
+> ⚠️ **Security Warning**: Ensure `.dev.vars` is added to `.gitignore` so secrets are never pushed to version control.
+
+---
+
+### Step 3: Create Cloudflare Pages Functions (`/functions/api/[[path]].ts`)
+
+Cloudflare Pages automatically mounts files inside the `/functions` directory as API endpoints. To handle all `/api/*` routes locally and on Cloudflare edge:
+
+Create `/functions/api/[[path]].ts`:
+
+```typescript
+// functions/api/[[path]].ts
+import { GoogleGenAI } from "@google/genai";
+
+interface Env {
+  GEMINI_API_KEY: string;
+}
+
+export async function onRequest(context: { request: Request; env: Env }) {
+  const url = new URL(context.request.url);
+  const path = url.pathname;
+
+  // 1. City Search Proxy
+  if (path === "/api/search-city") {
+    const query = url.searchParams.get("name") || "";
+    if (!query) {
+      return new Response(JSON.stringify({ results: [] }), {
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+    const res = await fetch(
+      `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=10&language=en&format=json`
+    );
+    const data = await res.json();
+    return new Response(JSON.stringify(data), {
+      headers: { "Content-Type": "application/json" }
+    });
+  }
+
+  // 2. Weather Forecast Proxy
+  if (path === "/api/forecast") {
+    const lat = url.searchParams.get("latitude") || "40.7128";
+    const lon = url.searchParams.get("longitude") || "-74.0060";
+    const forecastUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,rain,showers,snowfall,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,uv_index_max,precipitation_sum,rain_sum,showers_sum,snowfall_sum,wind_speed_10m_max&timezone=auto`;
+    const res = await fetch(forecastUrl);
+    const data = await res.json();
+    return new Response(JSON.stringify(data), {
+      headers: { "Content-Type": "application/json" }
+    });
+  }
+
+  // 3. Gemini AI Intelligence Endpoint
+  if (path === "/api/intelligence" && context.request.method === "POST") {
+    try {
+      const body = await context.request.json() as any;
+      const apiKey = context.env.GEMINI_API_KEY;
+
+      if (!apiKey) {
+        return new Response(
+          JSON.stringify({ error: "GEMINI_API_KEY not configured in .dev.vars" }),
+          { status: 500, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      const ai = new GoogleGenAI({ apiKey });
+      const prompt = `Act as an expert meteorologist and decision scientist. Analyze weather data for ${body.locationName} and provide advisory JSON: Current temp ${body.current?.temperature_2m}°C.`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+        config: { responseMimeType: "application/json" }
+      });
+
+      return new Response(response.text, {
+        headers: { "Content-Type": "application/json" }
+      });
+    } catch (err: any) {
+      return new Response(
+        JSON.stringify({ error: err.message || "Intelligence generation failed" }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
+      );
+    }
+  }
+
+  return new Response(JSON.stringify({ error: "Route not found" }), {
+    status: 404,
+    headers: { "Content-Type": "application/json" }
+  });
+}
+```
+
+---
+
+### Step 4: Run Cloudflare Local Development Server
+
+To simulate the Cloudflare Pages & Workers environment on your local machine:
+
+#### 1. Build Static Assets First:
+```bash
+npx vite build
+```
+
+#### 2. Start Local Cloudflare Pages Dev Server:
+```bash
+npx wrangler pages dev dist --port 3000
+```
+
+`wrangler` will:
+- Serve static frontend assets from `dist/`
+- Execute functions inside `/functions` using Cloudflare's local `workerd` runtime engine
+- Load secret variables directly from `.dev.vars`
+- Bind to `http://localhost:3000`
+
+---
+
+### Step 5: (Optional) Add Cloudflare Dev Script to `package.json`
+
+For quick command execution, add a custom npm script to `package.json`:
+
+```json
+"scripts": {
+  "dev": "tsx server.ts",
+  "dev:cloudflare": "vite build && wrangler pages dev dist --port 3000",
+  "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs"
+}
+```
+
+Run Cloudflare local dev environment with:
+```bash
+npm run dev:cloudflare
+```
+
+---
+
+### Step 6: Expose Local Dev Server with Cloudflare Tunnels (Dev Hosted URL)
+
+If you need a public HTTPS hosted URL for testing on mobile devices or sharing with team members during local development:
+
+1. **Authenticate Wrangler** (one-time setup):
+   ```bash
+   npx wrangler login
+   ```
+
+2. **Launch Cloudflare Tunnel to local dev server**:
+   ```bash
+   npx wrangler pages dev dist --tunnel
+   ```
+
+Wrangler will generate a temporary public Cloudflare URL (e.g., `https://xxxx.trycloudflare.com`) pointing directly to your local development server!
+
+---
+
 ## 🏗️ Building for Production
 
 To build the full-stack bundle (Vite static assets + compiled Node.js CJS server):
