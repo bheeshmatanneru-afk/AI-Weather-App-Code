@@ -391,17 +391,31 @@ docker run -p 3000:3000 -e GEMINI_API_KEY="your-gemini-key" weather-intelligence
 
 ---
 
-## 🛠️ Troubleshooting Common Issues
+## ✅ Verification Checklist
 
-### 1. Cloudflare Pages Notice: "No package-lock.json... Build caching not supported"
-- **Solution**: Ensure `package-lock.json` is committed to git. Running `npm install --package-lock-only` generates `package-lock.json` without modifying `node_modules`.
+| Check | Expected Result |
+| --- | --- |
+| Run `npm run build` | Production build completes without errors |
+| Run `node -v` and `npm -v` | Versions display in the approved local environment |
+| Open Cloudflare Pages deployment URL | App loads from `pages.dev` |
+| Search Chennai | Current weather and forecast display |
+| Search London | Location and forecast update |
+| Search invalid city | City not found message appears |
+| Refresh browser | App still loads after browser refresh |
+| Check Cloudflare deployment logs | Deployment shows successful build or upload |
+| Resize browser | Layout remains usable |
 
-### 2. Search Bar Notice: "no coordinates matching found" or JSON Parse Errors
-- **Root Cause**: Occurs when `/api/search-city` endpoint is called on a purely static host and returns an HTML `404 Not Found` page instead of JSON.
-- **Fix**: The search component (`CitySearch.tsx`) automatically checks response headers for `application/json` and gracefully falls back to the direct Open-Meteo geocoding API (`https://geocoding-api.open-meteo.com`).
+---
 
-### 3. Missing `GEMINI_API_KEY`
-- If `GEMINI_API_KEY` is not provided, the application will automatically fall back to client-side rule-based intelligence generation (`intelligenceFallback.ts`), ensuring the UI displays complete clothing and activity advisory panels without breaking.
+## 🛠️ Troubleshooting
+
+| Issue | Likely Cause | Fix |
+| --- | --- | --- |
+| "No package-lock.json... Build caching not supported" notice | Missing `package-lock.json` in root repository | Run `npm install --package-lock-only` and commit `package-lock.json` |
+| "no coordinates matching found" or JSON parse error | `/api/search-city` returns HTML 404 on static host | App automatically falls back to direct Open-Meteo geocoding API in `CitySearch.tsx` |
+| Missing Gemini API Key / Intelligence fallback warning | `GEMINI_API_KEY` environment variable not configured | App automatically uses rule-based client fallback (`intelligenceFallback.ts`), or add `GEMINI_API_KEY` in `.env` / `.dev.vars` / Cloudflare Secrets |
+| Cloudflare build failure | Missing Node.js version environment setting | Set `NODE_VERSION=18` in Cloudflare Pages Environment Variables |
+| API 404 errors on static Pages host | Node server backend not available on static hosting | Deploy using Cloudflare Pages Functions (`/functions/api/[[path]].ts`) or rely on built-in client fallbacks |
 
 ---
 
